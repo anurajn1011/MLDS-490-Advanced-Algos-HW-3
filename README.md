@@ -7,7 +7,7 @@ The goal of this assignment was to implement the Federated Averaging algorithm i
 ## Directory Structure
 ```
 .
-├── data
+├── data # Create locally first.
 │   ├── Assignment3-data # Provided separately
 │   │   ├── README.txt
 │   │   ├── test_data.npy
