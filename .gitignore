@@ -1,5 +1,10 @@
+# Arbitrary files
 activate.txt
 *.txt
+!requirements.txt
+heatmap*.png
+coherence.png 
+scale.png 
 
 # Virtual environments
 .venv/

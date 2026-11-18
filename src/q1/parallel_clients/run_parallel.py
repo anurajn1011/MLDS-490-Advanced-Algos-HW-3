@@ -28,8 +28,11 @@ def plot_history(hist, title, path):
         ax[1].plot(r, [h[k] for h in hist], label=k)
     ax[0].set(xlabel="Communication round", ylabel="Loss", title=title)
     ax[1].set(xlabel="Communication round", ylabel="Accuracy", title=title)
-    ax[0].legend(); ax[1].legend()
-    plt.tight_layout(); plt.savefig(path, dpi=150); plt.close()
+    ax[0].legend()
+    ax[1].legend()
+    plt.tight_layout()
+    plt.savefig(path, dpi=150)
+    plt.close()
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()

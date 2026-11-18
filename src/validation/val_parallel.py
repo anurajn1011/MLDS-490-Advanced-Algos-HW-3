@@ -2,6 +2,7 @@
 val_parallel.py - edge cases and validation experiments for Part 1.2 (Ray actors).
 Every check is tagged [EDGE] (edge case or limit case) or [VALID] (validation of correct behavior).
 Run from src/validation:  python validation_parallel.py (QUICK=1 for a short run)
+Recommended to run using script: scripts/run_validation.sh parallel
 
 Uses the first 20 clients so that every test is fast. Needs at least 4 CPUs for the speedup checks otherwise these checks are skipped. 
 """

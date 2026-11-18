@@ -1,7 +1,8 @@
 """
 val_fed_avg.py - edge cases and validation experiments for Part 1.1 (sequential FedAvg).
 Every check is tagged [EDGE] (edge case or limit case) or [VALID] (validation of correct behavior).
-Run from src/validation:  python validation_fedavg.py, QUICK=1 for a short run
+Run from src/validation:  python validation_fedavg.py, QUICK=1 for a short run.
+Recommended to run using script: scripts/run_validation.sh fedavg
 
 Tests an exact identity, a limit case, a control experiment with a known answer, a leakage probe, etc.
 """
@@ -240,13 +241,17 @@ def noniid_tests(clients):
     perm = np.random.default_rng(0).permutation(len(X))
     iid = [Client(i, X[s], y[s], seed=SEED) for i, s in enumerate(np.split(perm, np.cumsum(sizes)[:-1]))]
     R, E = (30 if QUICK else 300), 5
-    rec_n = run_recording(make_server(clients), {c.id: c for c in clients}, R, E, 0.05, 32)
-    rec_i = run_recording(make_server(iid), {c.id: c for c in iid}, R, E, 0.05, 32)
-    an, ai = np.mean(rec_n["val_acc"][-10:]), np.mean(rec_i["val_acc"][-10:])
+
+    srv_n, srv_i = make_server(clients), make_server(iid) # keep the servers
+    rec_n = run_recording(srv_n, {c.id: c for c in clients}, R, E, 0.05, 32)
+    rec_i = run_recording(srv_i, {c.id: c for c in iid}, R, E, 0.05, 32)
+
+    an, ai = srv_n.evaluate_test()[1], srv_i.evaluate_test()[1] # global model, clean test set
+    vn, vi = np.mean(rec_n["val_acc"][-10:]), np.mean(rec_i["val_acc"][-10:])
     cn, ci = mean_cosine(rec_n), mean_cosine(rec_i)
-    print(f"\tval acc: non-IID {an:.3f}, IID {ai:.3f} | mean update cosine: non-IID {cn:.3f}, IID {ci:.3f}")
+    print(f"\tglobal test acc: non-IID {an:.3f}, IID {ai:.3f} | local val acc (not comparable): non-IID {vn:.3f}, IID {vi:.3f} | mean update cosine: non-IID {cn:.3f}, IID {ci:.3f}")
     check("[VALID] F7 clients' updates agree more when the data is IID (higher mean cosine)", ci > cn)
-    check("[VALID] F7 FedAvg is no better on the real non-IID split than on the IID split (within 0.02)", an <= ai + 0.02)
+    check("[VALID] F7 global test accuracy is no better on the real non-IID split than on the IID split (within 0.02)", an <= ai + 0.02)
 
 ### F8
 def learning_tests(clients):

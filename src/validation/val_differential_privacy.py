@@ -2,6 +2,7 @@
 val_differential_privacy.py - edge cases and validation experiments for Part 2 (Laplace input perturbation).
 Every check is tagged [EDGE] (edge case or limit case) or [VALID] (validation of correct behavior).
 Run from src/validation:  python validation_dp.py (QUICK=1 for a short run)
+Recommended to run using script: scripts/run_validation.sh dp
 
 Blocks: the noise really is Laplace(0, b) and independent; the design rules (fixed noise, clean test set, b=0 reproduces Part 1) hold in the real code path; the noise power matches theory; an attacker recovering pixels from the perturbed data does exactly as well as Laplace theory predicts (so b means what we claim); and accuracy falls with b once the learning rate confound is removed.
 """
@@ -165,26 +166,52 @@ def attack_tests():
 
 ### D7 / D8
 def utility_tests():
-    section("D7 LEARNING-RATE CONFOUND AND D8 ACCURACY VS b")
+    '''Accuracy should fall with b and a fixed learning rate.'''
+    section("D7 LEARNING RATE AND D8 ACCURACY VS b (fixed lr, as in Part 1)")
     R = 20 if QUICK else 60
     seeds = (0,) if QUICK else (0, 1)
     bs = (0.0, 0.25, 0.5, 1.0, 2.0)
-    scaled = {b: [dp_run(train, test, b, C=0.1, epochs=E, lr=LR, batch_size=BS, rounds=R, seed=s, scale_lr=True) for s in seeds] for b in bs}
-    fixed = {b: dp_run(train, test, b, C=0.1, epochs=E, lr=LR, batch_size=BS, rounds=R, seed=0, scale_lr=False) for b in (0.5, 2.0)}
-    print(f"\n\t{'b':>5}{'lr used':>9}{'test acc (scaled lr)':>22}{'test acc (fixed lr)':>21}")
-    for b in bs:
-        ta = [r[2] for r in scaled[b]]
-        fx = f"{fixed[b][2]:.3f}{' (diverged)' if not np.isfinite(fixed[b][1]) else ''}" if b in fixed else "-"
-        print(f"\t{b:>5}{scaled[b][0][3]:>9.4f}{np.mean(ta):>14.3f} +- {np.std(ta):.3f}{fx:>21}")
+
+    def run(b, lr, seed=0, scale=False):
+        return dp_run(train, test, b, C=0.1, epochs=E, lr=lr, batch_size=BS,
+                      rounds=R, seed=seed, scale_lr=scale)
+
+    # r = (history, test_loss, test_acc, lr_used); validation accuracy = mean of the last 10 rounds
+    val = lambda r: float(np.mean([h["val_acc"] for h in r[0][-10:]]))
+
+    fixed = {b: [run(b, LR, s) for s in seeds] for b in bs}
+
+    # D7: does the learning rate need to change with b? The lr is picked on VALIDATION accuracy only.
+    grid = (0.02, LR, 0.1)
+    chosen = {}
+    print(f"\n\t{'b':>5}" + "".join(f"{'val@' + str(lr):>10}" for lr in grid)
+          + f"{'chosen':>9}{'test(chosen)':>14}{'test(' + str(LR) + ')':>12}")
     for b in (0.5, 2.0):
-        check(f"[VALID] D7 b={b}: the scaled learning rate is smaller than the fixed one", scaled[b][0][3] < LR)
-        check(f"[VALID] D7 b={b}: scaling the learning rate never hurts test accuracy (tolerance 0.01)", np.mean([r[2] for r in scaled[b]]) >= fixed[b][2] - 0.01, f"scaled {np.mean([r[2] for r in scaled[b]]):.3f}, fixed {fixed[b][2]:.3f}")
-    check("[VALID] D7 with the scaled learning rate no run diverges", all(np.isfinite(r[1]) for b in bs for r in scaled[b]))
-    acc = [np.mean([r[2] for r in scaled[b]]) for b in bs]
+        runs = {lr: (fixed[b][0] if lr == LR else run(b, lr)) for lr in grid}
+        best = max(grid, key=lambda lr: val(runs[lr]))
+        chosen[b] = (best, runs)
+        print(f"\t{b:>5}" + "".join(f"{val(runs[lr]):>10.3f}" for lr in grid)
+              + f"{best:>9}{runs[best][2]:>14.3f}{runs[LR][2]:>12.3f}")
+    scaled = run(0.5, LR, scale=True)
+    print(f"\n\tb=0.5 with the ||x||^2-scaled lr ({scaled[3]:.4f}): test acc {scaled[2]:.3f} "
+          f"vs {fixed[0.5][0][2]:.3f} with lr={LR}")
+
+    check("[VALID] D7 with the Part 1 learning rate no run diverges at any b", all(np.isfinite(r[1]) for b in bs for r in fixed[b]))
+    for b, (best, runs) in chosen.items():
+        check(f"[VALID] D7 b={b}: keeping lr={LR} costs at most 0.02 test accuracy against the lr picked on validation ({best})",
+              runs[LR][2] >= runs[best][2] - 0.02, f"{runs[LR][2]:.3f} vs {runs[best][2]:.3f}")
+    check("[VALID] D7 finding: scaling the lr by ||x||^2 (the old --scale-lr) is worse than the fixed lr at b=0.5",
+          scaled[2] < fixed[0.5][0][2], f"{scaled[2]:.3f} vs {fixed[0.5][0][2]:.3f}")
+
+    acc = [float(np.mean([r[2] for r in fixed[b]])) for b in bs]
+    std = [float(np.std([r[2] for r in fixed[b]])) for b in bs]
+    print("\n\t    b   test acc (fixed lr)")
+    for b, a, s in zip(bs, acc, std):
+        print(f"\t{b:>5}   {a:.3f} +- {s:.3f}")
     check("[VALID] D8 mean test accuracy never rises as b grows (tolerance 0.02)", all(b2 <= b1 + 0.02 for b1, b2 in zip(acc, acc[1:])))
     check("[VALID] D8 b = 2 loses at least 0.1 of the noiseless test accuracy", acc[-1] < acc[0] - 0.1, f"{acc[0]:.3f} -> {acc[-1]:.3f}")
     check("[VALID] D8 noise never helps: every noisy test accuracy is at most the noiseless one + 0.02", all(a <= acc[0] + 0.02 for a in acc))
-    train_acc = [np.mean([np.mean([h["train_acc"] for h in r[0][-10:]]) for r in scaled[b]]) for b in bs]
+    train_acc = [float(np.mean([np.mean([h["train_acc"] for h in r[0][-10:]]) for r in fixed[b]])) for b in bs]
     RES["utility"] = (bs, acc, train_acc)
 
 def privacy_utility_plot():

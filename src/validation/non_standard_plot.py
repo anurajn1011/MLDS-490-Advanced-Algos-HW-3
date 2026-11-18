@@ -1,5 +1,6 @@
 """
 non_standard_plot.py  -  the non standard plot shared by Part 1.1, Part 1.2 and Part 2.
+Recommended to run using script: scripts/run_validation.sh plot
 
 In every round each selected client returns an update delta_k = w_k - w_global.
 

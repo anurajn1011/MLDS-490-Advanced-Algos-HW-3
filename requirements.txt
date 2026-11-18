@@ -1,0 +1,11 @@
+pandas
+numpy
+torch
+torchvision
+matplotlib
+seaborn
+pyyaml
+ipykernel
+tqdm
+ray
+psutil

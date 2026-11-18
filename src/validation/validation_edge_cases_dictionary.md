@@ -63,7 +63,7 @@ Each script ends with a PASS count per tag. A script exits nonzero if any check 
 | F7a | IID redistribution of the same data; mean cosine between client updates | heterogeneity lowers agreement | IID cosine > non-IID cosine |
 | F7b | Validation accuracy, IID vs real | heterogeneity does not help | non-IID <= IID + 0.02 |
 | F8a | Test loss of untrained model | near-uniform init | 3.9 < loss < 4.6 (ln 62 = 4.13) |
-| F8b | Validation accuracy after training | learns beyond majority class | > 3 x majority-class rate |
+| F8b | Global model's clean-test accuracy, IID vs real (local validation accuracy is printed but not compared: it flatters non-IID data) | learns beyond majority class | > 3 x majority-class rate |
 | F8c | First 10 vs last 10 rounds | loss decreases | last < first |
 | F8d | All logged losses | numerical stability | all finite |
 | F8e | Shuffle labels within each client | accuracy cannot come from leakage | val acc <= majority rate + 0.05 |
@@ -156,10 +156,10 @@ Uses the first 20 clients. Needs `ray` and `psutil`.
 | D6a | Attacker thresholds each pixel at 0.5 | b means what we claim | within 0.005 of 1 - 0.5 exp(-1/(2b)) |
 | D6b | Same | no attacker beats the eps = 1/b DP bound | <= e^eps/(1+e^eps) + 0.002 |
 | D6c | Same | privacy grows with b | non-increasing, last < 0.6 |
-| D7a | b = 0.5, 2: lr used | scaled lr is smaller | lr_eff < 0.05 |
-| D7b | Test accuracy, scaled vs fixed lr | scaling removes an optimization artefact | scaled >= fixed - 0.01 |
-| D7c | All scaled runs | stability | finite loss |
-| D8a | Mean test accuracy over seeds, b = 0 ... 2 | monotone degradation | non-increasing (tolerance 0.02) |
+| D7a | Part 1 learning rate at every b | the Part 1 lr is stable under noise | all losses finite |
+| D7b | b = 0.5, 2: lr grid {0.02, 0.05, 0.1} picked on validation accuracy | the lr need not change with b | lr = 0.05 within 0.02 test accuracy of the validation-picked lr |
+| D7c | b = 0.5: old `--scale-lr` (shrinks lr by the ‖x‖² ratio) vs fixed lr | the ‖x‖² scaling rule is wrong (documented finding) | scaled test accuracy < fixed |
+| D8a | Mean test accuracy over seeds at fixed lr, b = 0 ... 2 | monotone degradation | non-increasing (tolerance 0.02) |
 | D8b | b = 2 vs b = 0 | effect size | drop >= 0.1 |
 | D8c | Every b vs b = 0 | noise is not a free gain | acc <= noiseless + 0.02 |
 
